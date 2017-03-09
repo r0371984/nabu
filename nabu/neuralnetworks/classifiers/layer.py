@@ -54,6 +54,7 @@ class Linear(object):
                 flat_outputs,
                 inputs.get_shape().as_list()[:-1] + [self.output_dim])
 
+
         return outputs
 
 class BLSTMLayer(object):
@@ -315,7 +316,7 @@ class AConv1dLayer(object):
                 'bias', [self.num_units],
                 initializer=tf.random_normal_initializer(stddev=stddev))
 
-            #do the arous convolution
+            #do the atrous convolution
             if causal:
                 out = ops.causal_aconv1d(inputs, w, self.dilation_rate)
             else:
@@ -326,5 +327,60 @@ class AConv1dLayer(object):
             out = ops.seq2nonseq(out, seq_length)
             out += b
             out = ops.nonseq2seq(out, seq_length, int(inputs.get_shape()[1]))
+
+        return out
+        
+class AConv2dLayer(object):
+    '''a 2-D atrous convolutional layer'''
+
+    def __init__(self, fheight, fwidth, channels_out):
+        '''constructor
+
+        Args:
+            fheight: the height of the filter
+            fwidth: the width of the filter
+            channels_out: the number of channels at the output side 
+        '''
+
+        self.fheight = fheight
+        self.fwidth = fwidth
+        self.out_channels = channels_out
+
+    def __call__(self, inputs, seq_length, dilation_rate, scope=None):
+        '''
+        Create the variables and do the forward computation
+
+        Args:
+            inputs: the input to the layer as a 4D
+                [batch_size, max_length, feature_dim,in_channels] tensor
+            seq_length: the length of the input sequences 
+            dilation_rate: the rate of dilation
+            scope: The variable scope sets the namespace under which
+                the variables created during this call will be stored.
+
+        Returns:
+            the outputs which is a [batch_size, max_length, feature_dim,out_channels]
+        '''
+
+        with tf.variable_scope(scope or type(self).__name__):
+
+            in_channels = int(inputs.get_shape()[3])
+            stddev = 1/(self.fwidth*self.fheight*in_channels)**0.5
+
+            #the filter parameters
+            w = tf.get_variable(
+                'filter', [self.fheight, self.fwidth, in_channels, self.out_channels],
+                initializer=tf.random_normal_initializer(stddev=stddev))
+
+            #the bias parameters
+            b = tf.get_variable(
+                'bias', [self.out_channels],
+                initializer=tf.random_normal_initializer(stddev=stddev))
+
+            #do the atrous convolution
+            out = tf.nn.atrous_conv2d(inputs,w,dilation_rate,'SAME')
+
+            #add the bias
+            out = tf.nn.bias_add(out,b)
 
         return out

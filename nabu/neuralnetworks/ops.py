@@ -5,13 +5,11 @@ import tensorflow as tf
 
 def aconv1d(inputs, filt, dilation_rate, scope=None):
     '''a 1 dimensional causal (diluted) convolution
-
     Args:
         inputs: a [batch_size, max_seq_length, dim] input tensorflow
         filt: the filter of shape [kernel_size, dim_in, dim_out]
         dilation rate: the rate of dilation (integer)
         scope: the name of the operations
-
     Returns:
         the output of the 1D atrous convolution
     '''
@@ -32,13 +30,11 @@ def aconv1d(inputs, filt, dilation_rate, scope=None):
 
 def causal_aconv1d(inputs, filt, dilation_rate, scope=None):
     '''a 1 dimensional causal atrous (diluted) convolution
-
     Args:
         inputs: a [batch_size, max_seq_length, dim] input tensorflow
         filt: the filter of shape [kernel_size, dim_in, dim_out]
         dilation rate: the rate of dilation (integer)
         scope: the name of the operations
-
     Returns:
         the output of the 1D causal atrous convolution
     '''
@@ -62,11 +58,9 @@ def causal_aconv1d(inputs, filt, dilation_rate, scope=None):
 
 def mu_law_encode(inputs, num_levels, scope=None):
     '''do mu-law encoding
-
     Args:
         inputs: the inputs to quantize
         num_levels: number of quantization lavels
-
     Returns:
         te one-hot encoded inputs'''
 
@@ -123,17 +117,61 @@ def pyramid_stack(inputs, sequence_lengths, scope=None):
                                           tf.int32)
 
     return outputs, output_sequence_lengths
+    
+def channel_stack(inputs, sequence_lengths, scope=None):
+    '''
+    concatenate each two consecutive elements in time in the depth
+
+    Args:
+        inputs: A time minor tensor [batch_size, time, feature_size, depth]
+        sequence_lengths: the length of the input sequences
+        scope: the current scope
+
+    Returns:
+        inputs: Concatenated inputs [batch_size, time/2, feature_size, depth*2]
+        sequence_lengths: the lengths of the inputs sequences [batch_size]
+    '''
+
+    with tf.name_scope(scope or 'channel_stack'):
+
+        input_shape = tf.Tensor.get_shape(inputs)
+
+        #pad with zeros if odd number of inputs
+        if int(input_shape[1]) % 2 == 1:
+            padded_inputs = tf.pad(inputs, [[0, 0], [0, 1], [0, 0], [0,0]])
+            length = int(input_shape[1]) + 1
+        else:
+            padded_inputs = inputs
+            length = int(input_shape[1])
+
+        #convert imputs to time major
+        time_major_input = tf.transpose(padded_inputs, [1, 0, 2, 3])
+
+        #seperate odd and even inputs
+        odd_inputs = tf.gather(time_major_input, range(1, length, 2))
+        even_inputs = tf.gather(time_major_input, range(0, length, 2))
+
+        #concatenate odd and even inputs
+        time_major_outputs = tf.concat([even_inputs, odd_inputs], 3)
+
+        #convert back to time minor
+        outputs = tf.transpose(time_major_outputs, [1, 0, 2, 3])
+
+        #compute the new sequence length
+        output_sequence_lengths = tf.cast(tf.ceil(tf.cast(sequence_lengths,
+                                                          tf.float32)/2),
+                                          tf.int32)
+
+    return outputs, output_sequence_lengths
 
 def seq2nonseq(sequential, seq_length, name=None):
     '''
     Convert sequential data to non sequential data
-
     Args:
         sequential: the sequential data which is a [batch_size, max_length, dim]
             tensor
         seq_length: a vector containing the sequence lengths
         name: [optional] the name of the operation
-
     Returns:
         non sequential data, which is a TxF tensor where T is the sum of all
         sequence lengths
@@ -155,14 +193,12 @@ def seq2nonseq(sequential, seq_length, name=None):
 def nonseq2seq(tensor, seq_length, length, name=None):
     '''
     Convert non sequential data to sequential data
-
     Args:
         tensor: non sequential data, which is a TxF tensor where T is the sum of
             all sequence lengths
         seq_length: a vector containing the sequence lengths
         length: the constant length of the output sequences
         name: [optional] the name of the operation
-
     Returns:
         sequential data, which is a [batch_size, max_length, dim]
         tensor
