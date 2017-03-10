@@ -24,11 +24,11 @@ def main(_):
     '''main function'''
 
     #pointers to the config files
-    computing_cfg_file = 'config/computing/non-distributed.cfg'
+    computing_cfg_file = 'config/computing/condor_local.cfg'
     database_cfg_file = 'config/asr_databases/TIMIT.conf'
     if FLAGS.type == 'asr':
         feat_cfg_file = 'config/features/fbank.cfg'
-    classifier_cfg_file = 'config/asr/LAS.cfg'
+    classifier_cfg_file = 'config/asr/LASCNN.cfg'
     trainer_cfg_file = 'config/trainer/cross_entropytrainer.cfg'
     decoder_cfg_file = 'config/decoder/BeamSearchDecoder.cfg'
 

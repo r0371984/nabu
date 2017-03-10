@@ -36,7 +36,7 @@ class ListenerBLSTMACNN(encoder.Encoder):
         self.inlayer = layer.BLSTMLayer(int(conf['listener_numunits']))
         self.outlayer = layer.BLSTMLayer(int(conf['listener_numunits']))
 
-        super(ListenerACNNBLSTM, self).__init__(conf, name)
+        super(ListenerBLSTMACNN, self).__init__(conf, name)
 
     def encode(self, inputs, sequence_lengths, is_training=False):
         '''
@@ -54,7 +54,7 @@ class ListenerBLSTMACNN(encoder.Encoder):
         '''
 
         batch_size = int(inputs.get_shape()[0])
-        outputs = self.inlayer(outputs, sequence_lengths, 'outlayer')
+        outputs = self.inlayer(inputs, sequence_lengths, 'inlayer')
         outputs = tf.expand_dims(outputs,3)
 
         with tf.variable_scope('block0'):
