@@ -23,5 +23,7 @@ def factory(conf):
         return listenerACNNBLSTM.ListenerACNNBLSTM(conf)
     if conf['encoder'] == 'listeneracnn':
         return listenerACNN.ListenerACNN(conf)
+    if conf['encoder'] == 'listenerblstmacnn':
+        return listenerBLSTMACNN.ListenerBLSTMACNN(conf)
     else:
         raise Exception('undefined asr encoder type: %s' % conf['encoder'])
