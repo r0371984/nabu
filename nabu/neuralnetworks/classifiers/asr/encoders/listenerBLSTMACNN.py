@@ -33,8 +33,8 @@ class ListenerBLSTMACNN(encoder.Encoder):
             int(conf['filter_height']),int(conf['filter_depth']))
 
         #create the blstm input and output layer
-        self.inlayer = layer.BLSTMLayer(int(conf['listener_numunits']))
-        self.outlayer = layer.BLSTMLayer(int(conf['listener_numunits']))
+        self.inlayer = layer.PBLSTMLayer(int(conf['listener_numunits']))
+        self.outlayer = layer.Linear(int(conf['listener_numunits']))
 
         super(ListenerBLSTMACNN, self).__init__(conf, name)
 
@@ -54,30 +54,17 @@ class ListenerBLSTMACNN(encoder.Encoder):
         '''
 
         batch_size = int(inputs.get_shape()[0])
-        outputs = self.inlayer(inputs, sequence_lengths, 'inlayer')
+
+        outputs, sequence_lengths = self.inlayer(inputs, sequence_lengths, 'inlayer')
+
+        if self.dropout < 1 and is_training:
+            outputs = tf.nn.dropout(outputs, self.dropout)
+
         outputs = tf.expand_dims(outputs,3)
-
-        with tf.variable_scope('block0'):
-
-            for s in range(self.numlayers):
-                hidden = self.aconvlayer(outputs,sequence_lengths, 2**s,
-                    'layer%d' % (s))
-
-                if self.dropout < 1 and is_training:
-                    hidden = tf.nn.dropout(hidden, self.dropout)
-
-                hidden = self.aconvlayer(hidden,sequence_lengths,1,'convlayer%d' % s)
-
-                outputs = (tf.nn.relu(hidden) + outputs)/2
-
 
         for l in range(self.numblocks):
 
-            outputs, sequence_lengths = ops.channel_stack(outputs,sequence_lengths,
-                'stack%d' % l)
-
-
-            with tf.variable_scope('block%d' % (l+1)):
+            with tf.variable_scope('block%d' % l):
 
 		        #the first layer after a stack cannot have a residual connection
                 hidden = self.aconvlayer(outputs,sequence_lengths,1,'layer0')
@@ -95,9 +82,11 @@ class ListenerBLSTMACNN(encoder.Encoder):
 
                     outputs = (tf.nn.relu(hidden) + outputs)/2
 
+            outputs, sequence_lengths = ops.channel_stack(outputs,sequence_lengths,
+                'stack%d' % l)
 
         outputs = tf.reshape(outputs,[batch_size,int(outputs.get_shape()[1]),-1])
-        outputs = self.outlayer(outputs, sequence_lengths, 'outlayer')
+        outputs = self.outlayer(outputs, 'outlayer')
 
         if self.dropout < 1 and is_training:
             outputs = tf.nn.dropout(outputs, self.dropout)
