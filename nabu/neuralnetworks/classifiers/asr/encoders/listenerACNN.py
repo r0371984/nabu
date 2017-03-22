@@ -33,7 +33,7 @@ class ListenerACNN(encoder.Encoder):
         self.dropout = float(conf['listener_dropout'])
 
         #atrous convolutional layer
-        self.aconvlayer = layer.AConv2dLayer(int(conf['filter_width']),
+        self.aconvlayer = layer.AConvLayerTime(int(conf['filter_width']),
             int(conf['filter_height']),int(conf['filter_depth']))
         #linear feedforward output layer
         self.outlayer = layer.Linear(int(conf['outlayer_units']))
@@ -64,6 +64,7 @@ class ListenerACNN(encoder.Encoder):
             for s in range(self.numlayers):
                 hidden = self.aconvlayer(outputs,sequence_lengths, 2**s,
                     'layer%d' % (s))
+                hidden = tf.nn.relu(hidden)
 
                 if self.dropout < 1 and is_training:
                     hidden = tf.nn.dropout(hidden, self.dropout)
@@ -89,6 +90,7 @@ class ListenerACNN(encoder.Encoder):
                 for s in range(self.numlayers):
                     hidden = self.aconvlayer(outputs,sequence_lengths, 2**(s+1),
                         'layer%d' % (s+1))
+                    hidden = tf.nn.relu(hidden)
 
                     if self.dropout < 1 and is_training:
                         hidden = tf.nn.dropout(hidden, self.dropout)

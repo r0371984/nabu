@@ -28,7 +28,7 @@ class ListenerACNNBLSTM(encoder.Encoder):
         self.dropout = float(conf['listener_dropout'])
 
         #atrous convolutional layer
-        self.aconvlayer = layer.AConv2dLayer(int(conf['filter_width']),
+        self.aconvlayer = layer.AConvLayerTime(int(conf['filter_width']),
             int(conf['filter_height']),int(conf['filter_depth']))
 
         #create the blstm output layer
@@ -58,21 +58,18 @@ class ListenerACNNBLSTM(encoder.Encoder):
 
             for s in range(self.numlayers):
                 hidden = self.aconvlayer(outputs,sequence_lengths, 2**s,
-                    'layer%d' % (s))
-
-                if self.dropout < 1 and is_training:
-                    hidden = tf.nn.dropout(hidden, self.dropout)
-
-                hidden = self.aconvlayer(hidden,sequence_lengths,1,'convlayer%d' % s)
+                    'layer%d' % s)
 
                 outputs = (tf.nn.relu(hidden) + outputs)/2
+
+            if self.dropout < 1 and is_training:
+                outputs = tf.nn.dropout(outputs, self.dropout)
 
 
         for l in range(self.numblocks):
 
             outputs, sequence_lengths = ops.channel_stack(outputs,sequence_lengths,
                 'stack%d' % l)
-
 
             with tf.variable_scope('block%d' % (l+1)):
 
@@ -84,20 +81,15 @@ class ListenerACNNBLSTM(encoder.Encoder):
                     hidden = self.aconvlayer(outputs,sequence_lengths, 2**(s+1),
                         'layer%d' % (s+1))
 
-                    if self.dropout < 1 and is_training:
-                        hidden = tf.nn.dropout(hidden, self.dropout)
-
-                    hidden = self.aconvlayer(hidden,sequence_lengths,1,
-                        'convlayer%d' % (s+1))
-
                     outputs = (tf.nn.relu(hidden) + outputs)/2
 
+                if self.dropout < 1 and is_training:
+                    outputs = tf.nn.dropout(outputs, self.dropout)
 
         outputs = tf.reshape(outputs,[batch_size,int(outputs.get_shape()[1]),-1])
         outputs = self.outlayer(outputs, sequence_lengths, 'outlayer')
 
         if self.dropout < 1 and is_training:
             outputs = tf.nn.dropout(outputs, self.dropout)
-
 
         return outputs

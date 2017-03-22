@@ -329,9 +329,10 @@ class AConv1dLayer(object):
             out = ops.nonseq2seq(out, seq_length, int(inputs.get_shape()[1]))
 
         return out
-        
+
 class AConv2dLayer(object):
-    '''a 2-D atrous convolutional layer'''
+    '''a 2-D atrous convolutional layer, the holes in the convolutions are
+    both in time and in frequency'''
 
     def __init__(self, fheight, fwidth, channels_out):
         '''constructor
@@ -339,7 +340,7 @@ class AConv2dLayer(object):
         Args:
             fheight: the height of the filter
             fwidth: the width of the filter
-            channels_out: the number of channels at the output side 
+            channels_out: the number of channels at the output side
         '''
 
         self.fheight = fheight
@@ -353,7 +354,7 @@ class AConv2dLayer(object):
         Args:
             inputs: the input to the layer as a 4D
                 [batch_size, max_length, feature_dim,in_channels] tensor
-            seq_length: the length of the input sequences 
+            seq_length: the length of the input sequences
             dilation_rate: the rate of dilation
             scope: The variable scope sets the namespace under which
                 the variables created during this call will be stored.
@@ -384,3 +385,89 @@ class AConv2dLayer(object):
             out = tf.nn.bias_add(out,b)
 
         return out
+
+class AConvLayerTime(object):
+    '''a 2-D atrous convolutional layer, the holes in the convolutions are
+    only in time'''
+
+    def __init__(self, fheight, fwidth, channels_out):
+        '''constructor
+
+        Args:
+            fheight: the height of the filter
+            fwidth: the width of the filter
+            channels_out: the number of channels at the output side
+        '''
+
+        self.fheight = fheight
+        self.fwidth = fwidth
+        self.out_channels = channels_out
+
+    def __call__(self, inputs, seq_length, dilation_rate, scope=None):
+        '''
+        Create the variables and do the forward computation
+
+        Args:
+            inputs: the input to the layer as a 4D
+                [batch_size, max_length, feature_dim, in_channels] tensor
+            seq_length: the length of the input sequences
+            dilation_rate: the rate of dilation
+            scope: The variable scope sets the namespace under which
+                the variables created during this call will be stored.
+
+        Returns:
+            the outputs which is a [batch_size, max_length, feature_dim, out_channels]
+        '''
+
+        with tf.variable_scope(scope or type(self).__name__):
+
+            in_channels = int(inputs.get_shape()[3])
+            stddev = 1/(self.fwidth*self.fheight*in_channels)**0.5
+
+            #the filter parameters
+            w = tf.get_variable(
+                'filter', [self.fheight, self.fwidth, in_channels, self.out_channels],
+                initializer=tf.random_normal_initializer(stddev=stddev))
+
+            #the bias parameters
+            b = tf.get_variable(
+                'bias', [self.out_channels],
+                initializer=tf.random_normal_initializer(stddev=stddev))
+
+            #sample feature vectors with dilation rate, do a standard 2D convolution
+            #on that matrix and shift to the right until all vectors in time are covered
+            #concatenate the result of every step
+            #summary, a for loop of: sample -> convolution -> concatenate
+
+            input_shape = tf.Tensor.get_shape(inputs)
+
+            #pad with zeros if odd sequence length (doesn't seem necessary in fact)
+            '''if int(input_shape[1]) % 2 == 1:
+                inputs = tf.pad(inputs, [[0, 0], [0, 1], [0, 0], [0,0]])
+                length = int(input_shape[1]) + 1
+            else:
+                length = int(input_shape[1])'''
+            length = int(input_shape[1])
+            #convert inputs to time major
+            time_major_input = tf.transpose(inputs, [1, 0, 2, 3])
+
+            for s in range(dilation_rate):
+
+                sampled_inputs = tf.gather(time_major_input, range(s, length, dilation_rate))
+
+                #do a 2D convolution
+                out = tf.nn.conv2d(sampled_inputs, w, [1,1,1,1], 'SAME')
+
+                #add the bias
+                out = tf.nn.bias_add(out,b)
+
+                if s==0:
+                    time_major_outputs = out
+                else:
+                    #concatenate the tensor back in time
+                    time_major_outputs = tf.concat([time_major_outputs, out], 0)
+
+            #convert back to time minor
+            outputs = tf.transpose(time_major_outputs, [1, 0, 2, 3])
+
+        return outputs
