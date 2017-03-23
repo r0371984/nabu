@@ -441,12 +441,6 @@ class AConvLayerTime(object):
 
             input_shape = tf.Tensor.get_shape(inputs)
 
-            #pad with zeros if odd sequence length (doesn't seem necessary in fact)
-            '''if int(input_shape[1]) % 2 == 1:
-                inputs = tf.pad(inputs, [[0, 0], [0, 1], [0, 0], [0,0]])
-                length = int(input_shape[1]) + 1
-            else:
-                length = int(input_shape[1])'''
             length = int(input_shape[1])
             #convert inputs to time major
             time_major_input = tf.transpose(inputs, [1, 0, 2, 3])
@@ -471,3 +465,109 @@ class AConvLayerTime(object):
             outputs = tf.transpose(time_major_outputs, [1, 0, 2, 3])
 
         return outputs
+
+class atrous_conv(object):
+    '''a 2-D atrous convolutional layer, the holes in the convolutions are
+    only in time'''
+
+    def __init__(self, fheight, fwidth, channels_out, padding):
+        '''constructor
+
+        Args:
+            fheight: the height of the filter
+            fwidth: the width of the filter
+            channels_out: the number of channels at the output side
+        '''
+
+        self.fheight = fheight
+        self.fwidth = fwidth
+        self.out_channels = channels_out
+        self.padding = padding
+
+    def __call__(self, inputs, seq_length, dilation_rate, scope=None):
+        '''
+        Create the variables and do the forward computation
+
+        Args:
+            inputs: the input to the layer as a 4D
+                [batch_size, max_length, feature_dim, in_channels] tensor
+            seq_length: the length of the input sequences
+            dilation_rate: the rate of dilation
+            scope: The variable scope sets the namespace under which
+                the variables created during this call will be stored.
+
+        Returns:
+            the outputs which is a [batch_size, max_length, feature_dim, out_channels]
+        '''
+
+        with tf.variable_scope(scope or type(self).__name__):
+
+            in_channels = int(inputs.get_shape()[3])
+            stddev = 1/(self.fwidth*self.fheight*in_channels)**0.5
+
+            #the filter parameters
+            w = tf.get_variable(
+                'filter', [self.fheight, self.fwidth, in_channels, self.out_channels],
+                initializer=tf.random_normal_initializer(stddev=stddev))
+
+            #the bias parameters
+            b = tf.get_variable(
+                'bias', [self.out_channels],
+                initializer=tf.random_normal_initializer(stddev=stddev))
+
+            if dilation_rate == 1:
+                #do a 2D convolution
+                out = tf.nn.conv2d(inputs, w, [1,1,1,1], self.padding)
+                #add the bias
+                outputs = tf.nn.bias_add(out,b)
+
+                return outputs
+
+            #arrange the padding, see tensorflow github code in nn_ops.py
+            if self.padding == "SAME":
+                filter_shape = tf.Variable.get_shape(w)
+
+                filter_height, filter_width = int(filter_shape[0]), int(filter_shape[1])
+                filter_height_up = filter_height + (filter_height - 1) * (dilation_rate - 1)
+                pad_height = filter_height_up -1
+                pad_width = filter_width -1
+                pad_top = pad_height // 2
+                pad_bottom = pad_height - pad_top
+                pad_left = pad_width // 2
+                pad_right = pad_width - pad_left
+            elif self.padding == "VALID":
+                pad_top = 0
+                pad_bottom = 0
+                pad_left = 0
+                pad_right = 0
+            else:
+                raise ValueError("Invalid padding")
+
+            input_shape = tf.Tensor.get_shape(inputs)
+            in_height = int(input_shape[1]) + pad_top + pad_bottom
+            in_width = int(input_shape[2]) + pad_left + pad_right
+            # More padding so that rate divides the height of the input.
+            pad_bottom_extra = (dilation_rate - in_height % dilation_rate) % dilation_rate
+            pad_right_extra = 0
+            # The paddings argument to space_to_batch includes both padding components.
+            space_to_batch_pad = [[pad_top, pad_bottom + pad_bottom_extra],
+                                [pad_left, pad_right + pad_right_extra]]
+            outputs = tf.space_to_batch(input=inputs,
+                                        paddings=space_to_batch_pad,
+                                        block_size=dilation_rate)
+            #Do the convolution
+            outputs = tf.nn.conv2d(input=outputs,
+                                    filter=w,
+                                    strides=[1, 1, 1, 1],
+                                    padding="VALID",
+                                    name=scope)
+
+            # The crops argument to batch_to_space is just the extra padding component.
+            batch_to_space_crop = [[0, pad_bottom_extra], [0, pad_right_extra]]
+
+            outputs = tf.batch_to_space(input=outputs,
+                                        crops=batch_to_space_crop,
+                                        block_size=dilation_rate)
+            #Add the bias
+            outputs = tf.nn.bias_add(outputs,b)
+            return outputs

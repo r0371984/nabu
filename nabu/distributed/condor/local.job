@@ -1,7 +1,5 @@
 # Normal execution
 Universe         = vanilla
-# number of CPUs is equql to the number of parameter servers and workers
-#requestCpus      = $(CPUs)
 # need enough RAM to store the parameters
 RequestMemory    = 2G
 #number of GPUs equal to the number of workers

@@ -79,7 +79,17 @@ def main(_):
     shutil.copyfile(decoder_cfg_file,
                     os.path.join(FLAGS.expdir, 'model', 'decoder.cfg'))
 
-    if computing_cfg['distributed'] == 'non-distributed':
+    if computing_cfg['distributed'] == 'condor_non-distributed':
+
+        if not os.path.isdir(os.path.join(FLAGS.expdir, 'outputs')):
+            os.makedirs(os.path.join(FLAGS.expdir, 'outputs'))
+
+        subprocess.call(['condor_submit', 'expdir=%s' % FLAGS.expdir,
+                         'memory=%s' % computing_cfg['minmemory'],
+                         'type=%s' % FLAGS.type,
+                         'nabu/distributed/condor/non_distributed.job'])
+
+    elif computing_cfg['distributed'] == 'non-distributed':
 
         if FLAGS.type == 'asr':
             train_asr(clusterfile=None,
@@ -99,9 +109,11 @@ def main(_):
         #create the directories
         if not os.path.isdir(os.path.join(FLAGS.expdir, 'outputs')):
             os.makedirs(os.path.join(FLAGS.expdir, 'outputs'))
+        if not os.path.isdir(os.path.join(FLAGS.expdir, 'cluster')):
+            os.makedirs(os.path.join(FLAGS.expdir, 'cluster'))
 
         #create the cluster file
-        with open(os.path.join(FLAGS.expdir, 'cluster'), 'w') as fid:
+        with open(os.path.join(FLAGS.expdir, 'cluster', 'cluster'), 'w') as fid:
             port = 1024
             for _ in range(int(computing_cfg['numps'])):
                 while not cluster.port_available(port):
@@ -294,7 +306,7 @@ def main(_):
 
 
         #create the cluster file
-        with open(FLAGS.expdir + '/clusterfile', 'w') as fid:
+        with open(os.path.join(FLAGS.expdir, 'cluster', 'cluster'), 'w') as fid:
             port = 1024
             for _ in range(int(computing_cfg['numps'])):
                 while not cluster.port_available(port):
@@ -309,8 +321,6 @@ def main(_):
 
         #submit the job
         subprocess.call(['condor_submit', 'expdir=%s' % FLAGS.expdir,
-                         'CPUs=%d' % (int(computing_cfg['numworkers']) +
-                                      int(computing_cfg['numps'])),
                          'GPUs=%d' % (int(computing_cfg['numworkers'])),
                          'memory=%s' % computing_cfg['minmemory'],
                          'type=%s' % FLAGS.type,

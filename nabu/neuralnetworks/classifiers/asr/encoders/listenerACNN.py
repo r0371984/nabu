@@ -33,8 +33,8 @@ class ListenerACNN(encoder.Encoder):
         self.dropout = float(conf['listener_dropout'])
 
         #atrous convolutional layer
-        self.aconvlayer = layer.AConvLayerTime(int(conf['filter_width']),
-            int(conf['filter_height']),int(conf['filter_depth']))
+        self.aconvlayer = layer.atrous_conv(int(conf['filter_width']),
+            int(conf['filter_height']),int(conf['filter_depth']),str(conf['padding']))
         #linear feedforward output layer
         self.outlayer = layer.Linear(int(conf['outlayer_units']))
 
