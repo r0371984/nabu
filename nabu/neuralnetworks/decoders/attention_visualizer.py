@@ -292,7 +292,7 @@ class Beam(namedtuple('Beam', ['sequences', 'lengths', 'states', 'scores',
                 expanded_finished = tf.reshape(tf.concat(
                     [tf.tile([[[False]]], [batch_size, beam_width, 1], 2),
                         tf.tile(tf.expand_dims(finished, 2),
-                                [1, 1, numlabels-1])], 2)
+                                [1, 1, numlabels-1])])
                                                , [batch_size, -1])
 
                 scores = tf.where(

@@ -4,7 +4,6 @@ neural network decoder environment'''
 from abc import ABCMeta, abstractmethod
 import tensorflow as tf
 import numpy as np
-import matplotlib
 
 class Decoder(object):
     '''the abstract class for a decoder'''
