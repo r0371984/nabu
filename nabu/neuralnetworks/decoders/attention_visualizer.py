@@ -82,8 +82,8 @@ class AttentionVisualizer(decoder.Decoder):
                 else:
                     attention_name = (
                         tf.get_default_graph()._name_stack
-                        + '/' + type(classifier.decoder).__name__
-                        + '/attention_decoder/attention_decoder/' +
+                        + '/' + type(self.classifier.decoder).__name__
+                        + '/attention_decoder/attention_decoder_1/' +
                         'Attention_0/Softmax:0')
 
                 attention = tf.get_default_graph().get_tensor_by_name(
@@ -290,7 +290,7 @@ class Beam(namedtuple('Beam', ['sequences', 'lengths', 'states', 'scores',
                 #set the scores of expanded beams from finished elements to
                 #negative maximum [batch_size x beam_width*numlabels]
                 expanded_finished = tf.reshape(tf.concat(
-                    [tf.tile([[[False]]], [batch_size, beam_width, 1]),
+                    [tf.tile([[[False]]], [batch_size, beam_width, 1], 2),
                         tf.tile(tf.expand_dims(finished, 2),
                                 [1, 1, numlabels-1])], 2)
                                                , [batch_size, -1])
