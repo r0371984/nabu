@@ -30,7 +30,7 @@ def factory(conf,
     elif conf['decoder'] == 'beamsearchdecoder':
         decoder_class = beam_search_decoder.BeamSearchDecoder
     elif conf['decoder'] == 'attention_visualizer':
-        decoder_class = attention_visualizer.AttentionVisiualizer
+        decoder_class = attention_visualizer.AttentionVisualizer
     elif conf['decoder'] == 'lm_confidence_decoder':
         decoder_class = lm_confidence_decoder.LmConfidenceDecoder
     else:

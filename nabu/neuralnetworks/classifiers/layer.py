@@ -543,18 +543,18 @@ class atrous_conv(object):
             else:
                 raise ValueError("Invalid padding")
 
-            input_shape = tf.Tensor.get_shape(inputs)
-            in_height = int(input_shape[1]) + pad_top + pad_bottom
-            in_width = int(input_shape[2]) + pad_left + pad_right
+            input_shape = tf.shape(inputs)
+            in_height = input_shape[1] + pad_top + pad_bottom
+            in_width = input_shape[2] + pad_left + pad_right
             # More padding so that rate divides the height of the input.
             pad_bottom_extra = (dilation_rate - in_height % dilation_rate) % dilation_rate
             pad_right_extra = 0
             # The paddings argument to space_to_batch includes both padding components.
             space_to_batch_pad = [[pad_top, pad_bottom + pad_bottom_extra],
                                 [pad_left, pad_right + pad_right_extra]]
-            outputs = tf.space_to_batch(input=inputs,
-                                        paddings=space_to_batch_pad,
-                                        block_size=dilation_rate)
+            outputs = tf.space_to_batch_nd(input=inputs,
+                                           paddings=space_to_batch_pad,
+                                           block_shape=[dilation_rate,1])
             #Do the convolution
             outputs = tf.nn.conv2d(input=outputs,
                                     filter=w,
@@ -565,9 +565,9 @@ class atrous_conv(object):
             # The crops argument to batch_to_space is just the extra padding component.
             batch_to_space_crop = [[0, pad_bottom_extra], [0, pad_right_extra]]
 
-            outputs = tf.batch_to_space(input=outputs,
+            outputs = tf.batch_to_space_nd(input=outputs,
                                         crops=batch_to_space_crop,
-                                        block_size=dilation_rate)
+                                        block_shape=[dilation_rate,1])
             #Add the bias
             outputs = tf.nn.bias_add(outputs,b)
             return outputs

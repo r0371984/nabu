@@ -15,7 +15,7 @@ FLAGS = tf.app.flags.FLAGS
 def main(_):
     '''does everything for testing'''
 
-    decoder_cfg_file = 'config/decoder/BeamSearchDecoder.cfg'
+    decoder_cfg_file = 'config/decoder/attention_visualizer.cfg'
 
     #read the database config file
     parsed_database_cfg = configparser.ConfigParser()

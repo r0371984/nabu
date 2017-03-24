@@ -4,6 +4,7 @@ neural network decoder environment'''
 from abc import ABCMeta, abstractmethod
 import tensorflow as tf
 import numpy as np
+import matplotlib
 
 class Decoder(object):
     '''the abstract class for a decoder'''
@@ -123,6 +124,8 @@ class Decoder(object):
                 self.outputs,
                 feed_dict={self.inputs:input_tensor,
                            self.input_seq_length:input_seq_length})
+
+
 
             #convert the label sequence into a sequence of characers
             for i, utt_id in enumerate(utt_ids):
