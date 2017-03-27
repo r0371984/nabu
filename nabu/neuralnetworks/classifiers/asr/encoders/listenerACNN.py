@@ -35,6 +35,9 @@ class ListenerACNN(encoder.Encoder):
         #atrous convolutional layer
         self.aconvlayer = layer.atrous_conv(int(conf['filter_width']),
             int(conf['filter_height']),int(conf['filter_depth']),str(conf['padding']))
+        #normal 2d convolution, padding can be added but for now is hardcoded "SAME"
+        self.convlayer = layer.Conv2dLayer(int(conf['filter_width']),
+            int(conf['filter_height']),int(conf['filter_depth']))
         #linear feedforward output layer
         self.outlayer = layer.Linear(int(conf['outlayer_units']))
 
@@ -69,7 +72,7 @@ class ListenerACNN(encoder.Encoder):
                 if self.dropout < 1 and is_training:
                     hidden = tf.nn.dropout(hidden, self.dropout)
 
-                hidden = self.aconvlayer(hidden,sequence_lengths,1,'convlayer%d' % s)
+                hidden = self.convlayer(hidden,sequence_lengths,'convlayer%d' % s)
 
                 outputs = (tf.nn.relu(hidden) + outputs)/2
 
@@ -84,7 +87,7 @@ class ListenerACNN(encoder.Encoder):
             with tf.variable_scope('block%d' % (l+1)):
 
                 #the first layer after a stack cannot have a residual connection
-                hidden = self.aconvlayer(outputs, sequence_lengths, 1, 'layer0')
+                hidden = self.convlayer(outputs, sequence_lengths, 'layer0')
                 outputs = tf.nn.relu(hidden)
 
                 for s in range(self.numlayers):
@@ -95,7 +98,7 @@ class ListenerACNN(encoder.Encoder):
                     if self.dropout < 1 and is_training:
                         hidden = tf.nn.dropout(hidden, self.dropout)
 
-                    hidden = self.aconvlayer(hidden,sequence_lengths,1,
+                    hidden = self.convlayer(hidden,sequence_lengths,
                         'convlayer%d' % (s+1))
 
                     outputs = (tf.nn.relu(hidden) + outputs)/2

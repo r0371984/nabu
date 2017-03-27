@@ -28,7 +28,11 @@ class ListenerACNNBLSTM(encoder.Encoder):
         self.dropout = float(conf['listener_dropout'])
 
         #atrous convolutional layer
-        self.aconvlayer = layer.AConvLayerTime(int(conf['filter_width']),
+        self.aconvlayer = layer.atrous_conv(int(conf['filter_width']),
+            int(conf['filter_height']),int(conf['filter_depth']),str(conf['padding']))
+
+        #normal 2d convolution, padding can be added but for now is hardcoded "SAME"
+        self.convlayer = layer.Conv2dLayer(int(conf['filter_width']),
             int(conf['filter_height']),int(conf['filter_depth']))
 
         #create the blstm output layer
@@ -58,12 +62,15 @@ class ListenerACNNBLSTM(encoder.Encoder):
 
             for s in range(self.numlayers):
                 hidden = self.aconvlayer(outputs,sequence_lengths, 2**s,
-                    'layer%d' % s)
+                    'layer%d' % (s))
+                hidden = tf.nn.relu(hidden)
+
+                if self.dropout < 1 and is_training:
+                    hidden = tf.nn.dropout(hidden, self.dropout)
+
+                hidden = self.convlayer(hidden,sequence_lengths,'convlayer%d' % s)
 
                 outputs = (tf.nn.relu(hidden) + outputs)/2
-
-            if self.dropout < 1 and is_training:
-                outputs = tf.nn.dropout(outputs, self.dropout)
 
 
         for l in range(self.numblocks):
@@ -71,20 +78,26 @@ class ListenerACNNBLSTM(encoder.Encoder):
             outputs, sequence_lengths = ops.channel_stack(outputs,sequence_lengths,
                 'stack%d' % l)
 
+
+            #pdb.set_trace()
             with tf.variable_scope('block%d' % (l+1)):
 
-		        #the first layer after a stack cannot have a residual connection
-                hidden = self.aconvlayer(outputs,sequence_lengths,1,'layer0')
+                #the first layer after a stack cannot have a residual connection
+                hidden = self.convlayer(outputs, sequence_lengths, 'layer0')
                 outputs = tf.nn.relu(hidden)
 
                 for s in range(self.numlayers):
                     hidden = self.aconvlayer(outputs,sequence_lengths, 2**(s+1),
                         'layer%d' % (s+1))
+                    hidden = tf.nn.relu(hidden)
+
+                    if self.dropout < 1 and is_training:
+                        hidden = tf.nn.dropout(hidden, self.dropout)
+
+                    hidden = self.convlayer(hidden,sequence_lengths,
+                        'convlayer%d' % (s+1))
 
                     outputs = (tf.nn.relu(hidden) + outputs)/2
-
-                if self.dropout < 1 and is_training:
-                    outputs = tf.nn.dropout(outputs, self.dropout)
 
         outputs = tf.reshape(outputs,[batch_size,int(outputs.get_shape()[1]),-1])
         outputs = self.outlayer(outputs, sequence_lengths, 'outlayer')

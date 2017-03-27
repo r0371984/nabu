@@ -30,7 +30,7 @@ class ListenerCNNBLSTM(encoder.Encoder):
         self.blstm = layer.BLSTMLayer(int(conf['listener_numunits']))
 
 	    #create convolutional layer
-        self.convlayer = layer.AConv2dLayer(int(conf['filter_width']),
+        self.convlayer = layer.Conv2dLayer(int(conf['filter_width']),
             int(conf['filter_height']),int(conf['filter_depth']))
 
         super(ListenerCNNBLSTM, self).__init__(conf, name)
@@ -57,23 +57,19 @@ class ListenerCNNBLSTM(encoder.Encoder):
 
 
         batch_size = int(inputs.get_shape()[0])
-        inputs = tf.expand_dims(inputs,3)
+        outputs = tf.expand_dims(inputs,3)
 
         with tf.variable_scope('convlayers'):
 
-            outputs = self.convlayer(inputs, sequence_lengths, 1, 'convlayer')
-            outputs = tf.nn.relu(outputs)
-
             for l in range(self.numconvlayers):
                 #This block can be altered to e.g. conv3x3 - dropout - conv3x3 - residualconn
-                hidden = self.convlayer(outputs, sequence_lengths, 1, 'convlayera%d' % l)
+                hidden = self.convlayer(outputs, sequence_lengths, 'convlayer%d' % l)
                 hidden = tf.nn.relu(hidden)
 
-                if self.dropout < 1 and is_training:
-                    hidden = tf.nn.dropout(hidden, self.dropout)
+                outputs = tf.nn.max_pool(hidden,[1,3,3,1],[1,1,1,1],'SAME')
 
-                hidden = self.convlayer(hidden, sequence_lengths, 1, 'convlayerb%d' % l)
-                outputs = (tf.nn.relu(hidden)+outputs)/2
+                if self.dropout < 1 and is_training:
+                    outputs = tf.nn.dropout(outputs, self.dropout)
 
 
 	    outputs = tf.reshape(outputs,[batch_size,int(outputs.get_shape()[1]),-1])
