@@ -25,7 +25,7 @@ class ListenerCNN(encoder.Encoder):
         self.dropout = float(conf['listener_dropout'])
 
 	    #create convolutional layers
-        self.convlayer = layer.AConv2dLayer(int(conf['filter_width']),
+        self.convlayer = layer.Conv2dLayer(int(conf['filter_width']),
             int(conf['filter_height']),int(conf['filter_depth']))
 
         #create ff linear output layer
@@ -57,13 +57,13 @@ class ListenerCNN(encoder.Encoder):
         with tf.variable_scope('block0'):
 
             for s in range(self.numlayers):
-                hidden = self.convlayer(outputs,sequence_lengths, 1,
+                hidden = self.convlayer(outputs,sequence_lengths,
                     'layera%d' % (s))
 
                 if self.dropout < 1 and is_training:
                     hidden = tf.nn.dropout(hidden, self.dropout)
 
-                hidden = self.convlayer(hidden,sequence_lengths,1,'layerb%d' % s)
+                hidden = self.convlayer(hidden,sequence_lengths,'layerb%d' % s)
 
                 outputs = (tf.nn.relu(hidden) + outputs)/2
 
@@ -77,17 +77,17 @@ class ListenerCNN(encoder.Encoder):
             with tf.variable_scope('block%d' % (l+1)):
 
 		        #the first layer after a stack cannot have a residual connection
-                hidden = self.convlayer(outputs,sequence_lengths,1,'layer0')
+                hidden = self.convlayer(outputs,sequence_lengths,'layer0')
                 outputs = tf.nn.relu(hidden)
 
                 for s in range(self.numlayers):
-                    hidden = self.convlayer(outputs,sequence_lengths, 1,
+                    hidden = self.convlayer(outputs,sequence_lengths,
                         'layera%d' % (s+1))
 
                     if self.dropout < 1 and is_training:
                         hidden = tf.nn.dropout(hidden, self.dropout)
 
-                    hidden = self.convlayer(hidden,sequence_lengths,1,
+                    hidden = self.convlayer(hidden,sequence_lengths,
                         'layerb%d' % (s+1))
 
                     outputs = (tf.nn.relu(hidden) + outputs)/2

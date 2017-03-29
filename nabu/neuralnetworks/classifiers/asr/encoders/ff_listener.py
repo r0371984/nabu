@@ -52,7 +52,7 @@ class FfListener(encoder.Encoder):
                 outputs = self.layer(outputs)
 
                 #apply the nonlinearity
-                outputs = tf.nn.tanh(outputs)
+                outputs = tf.nn.relu(outputs)
 
                 #apply the pyramid stack
                 outputs, output_seq_lengths = pyramid_stack(outputs,

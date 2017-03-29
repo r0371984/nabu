@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
+
 
 class Decoder(object):
     '''the abstract class for a decoder'''
@@ -127,17 +129,26 @@ class Decoder(object):
                 feed_dict={self.inputs:input_tensor,
                            self.input_seq_length:input_seq_length})
 
+
+            #get the scores of the beam elements
+            scores = np.array([h[0] for h in output[0]])
+
+            #get the best label sequences in the beam
+            attention = output[0][np.argmax(scores)][2]
+
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            attention = np.array([a[0] for a in output[2]])
-            print attention
-            #ax.plot(attention[0])
-            #fig.savefig('listener.png')
+            ax.matshow(attention[1:235])
+            #ax.matshow(output[0][0][2]) #-> can for beam_width=1
+            ax.set_aspect('auto')
+            plt.xlabel('Time')
+            plt.ylabel('Target')
+            fig.savefig('listeneracnn.png')
 
             #convert the label sequence into a sequence of characers
             for i, utt_id in enumerate(utt_ids):
                 decoded[utt_id] = [(p[0], self.coder.decode(p[1]))
-                                   for p in output[i]]
+                    for p in output[i]]
 
 
         return decoded
