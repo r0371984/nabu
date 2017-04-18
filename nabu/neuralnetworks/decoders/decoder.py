@@ -130,20 +130,25 @@ class Decoder(object):
                            self.input_seq_length:input_seq_length})
 
 
-            #get the scores of the beam elements
+            '''#get the scores of the beam elements
             scores = np.array([h[0] for h in output[0]])
 
             #get the best label sequences in the beam
             attention = output[0][np.argmax(scores)][2]
 
+            #transpose and do matmul
+            #attention = np.dot(attention.transpose(),attention)
+            #print (attention)
+
             fig = plt.figure()
             ax = fig.add_subplot(111)
-            ax.matshow(attention[1:235])
+            ax.matshow(attention)
+            #ax.matshow(attention[1:235])
             #ax.matshow(output[0][0][2]) #-> can for beam_width=1
             ax.set_aspect('auto')
             plt.xlabel('Time')
             plt.ylabel('Target')
-            fig.savefig('listeneracnn.png')
+            fig.savefig('listenerprior.png')'''
 
             #convert the label sequence into a sequence of characers
             for i, utt_id in enumerate(utt_ids):

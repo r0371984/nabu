@@ -1,7 +1,7 @@
 '''@file asr_factory
 contains the asr decoder factory'''
 
-from . import listener, ff_listener, listenerCNN, listenerCNNBLSTM, listenerACNNBLSTM, listenerACNN, listenerBLSTMACNN
+from . import listener, ff_listener, listenerFF, listenerCNN, listenerCNNBLSTM, listenerACNNBLSTM, listenerACNN, listenerBLSTMACNN
 
 
 def factory(conf):
@@ -27,5 +27,7 @@ def factory(conf):
         return listenerBLSTMACNN.ListenerBLSTMACNN(conf)
     if conf['encoder'] == 'listenercnn':
         return listenerCNN.ListenerCNN(conf)
+    if conf['encoder'] == 'listenerff':
+        return listenerFF.ListenerFF(conf)
     else:
         raise Exception('undefined asr encoder type: %s' % conf['encoder'])

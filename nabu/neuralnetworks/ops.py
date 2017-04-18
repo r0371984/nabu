@@ -117,7 +117,7 @@ def pyramid_stack(inputs, sequence_lengths, scope=None):
                                           tf.int32)
 
     return outputs, output_sequence_lengths
-    
+
 def channel_stack(inputs, sequence_lengths, scope=None):
     '''
     concatenate each two consecutive elements in time in the depth
@@ -227,3 +227,46 @@ def nonseq2seq(tensor, seq_length, length, name=None):
         sequential = tf.stack(sequences)
 
     return sequential
+
+def batch_norm(input, is_training, name=None):
+    '''
+    This op performs batch normalization, it uses the high-level tensorflow
+    method contrib.layers.batch_norm which is based on the paper
+    "Batch normalization: accelerating deep network training by reducing
+    internal covariate shift"
+    Args:
+        input: a tensor of shape [batch_size, seq_length, dim] if working with
+                fully connected layers or shape
+                [batch_size, seq_length, dim, depth] for conv2d
+        is_training: a boolean, normalization differs during inference
+        name: the name of the operations
+
+    Returns:
+        the inputs normalized over the mini-batch (same shape)
+    '''
+
+    with tf.name_scope(name or 'batch_norm'):
+
+        rank = tf.rank(input)
+
+        if (rank == 4):
+            batch_size = int(input.get_shape()[0])
+            time = int(input.get_shape()[1])
+            features = int(input.get_shape()[2])
+            channels = int(input.get_shape()[3])
+
+            input = tf.reshape(input, [batch_size, time, features*channels])
+
+        outputs = tf.contrib.layers.batch_norm(inputs=input,
+                                               decay=0.90,
+                                               center=True,
+                                               scale=True,
+                                               epsilon=0.00001,
+                                               is_training=is_training,
+                                               updates_collections=None,
+                                               scope=name)
+
+        if (rank == 4):
+            outputs = tf.reshape(outputs, [batch_size, time, features, channels])
+
+    return outputs

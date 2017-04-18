@@ -66,15 +66,21 @@ class ListenerACNN(encoder.Encoder):
 
             for s in range(self.numlayers):
                 hidden = self.aconvlayer(outputs,sequence_lengths, 2**s,
-                    'layer%d' % (s))
+                    '0layer%d' % (s))
+
+                hidden = ops.batch_norm(hidden, is_training, '0bn%d' % s)
+
                 hidden = tf.nn.relu(hidden)
 
                 if self.dropout < 1 and is_training:
                     hidden = tf.nn.dropout(hidden, self.dropout)
 
-                hidden = self.convlayer(hidden,sequence_lengths,'convlayer%d' % s)
+                hidden = self.aconvlayer(hidden,sequence_lengths, 2**s,
+                    '1layer%d' % s)
 
-                outputs = (tf.nn.relu(hidden) + outputs)/2
+                hidden = ops.batch_norm(hidden, is_training, '1bn%d' % s)
+
+                outputs = tf.nn.relu((hidden + outputs)/2)
 
 
         for l in range(self.numblocks):
@@ -88,24 +94,34 @@ class ListenerACNN(encoder.Encoder):
 
                 #the first layer after a stack cannot have a residual connection
                 hidden = self.convlayer(outputs, sequence_lengths, 'layer0')
+
+                hidden = ops.batch_norm(hidden, is_training, 'bn0')
+
                 outputs = tf.nn.relu(hidden)
 
                 for s in range(self.numlayers):
                     hidden = self.aconvlayer(outputs,sequence_lengths, 2**(s+1),
-                        'layer%d' % (s+1))
+                        '0layer%d' % (s+1))
+
+                    hidden = ops.batch_norm(hidden, is_training, '0bn%d' % (s+1))
+
                     hidden = tf.nn.relu(hidden)
 
                     if self.dropout < 1 and is_training:
                         hidden = tf.nn.dropout(hidden, self.dropout)
 
-                    hidden = self.convlayer(hidden,sequence_lengths,
-                        'convlayer%d' % (s+1))
+                    hidden = self.aconvlayer(hidden,sequence_lengths, 2**(s+1),
+                        '1layer%d' % (s+1))
 
-                    outputs = (tf.nn.relu(hidden) + outputs)/2
+                    hidden = ops.batch_norm(hidden, is_training, '1bn%d' % (s+1))
+
+                    outputs = tf.nn.relu((hidden + outputs)/2)
 
 
         outputs = tf.reshape(outputs,[batch_size,int(outputs.get_shape()[1]),-1])
         outputs = self.outlayer(outputs, 'outlayer')
+
+        outputs = ops.batch_norm(outputs, is_training, 'out_bn')
 
         if self.dropout < 1 and is_training:
             outputs = tf.nn.dropout(outputs, self.dropout)

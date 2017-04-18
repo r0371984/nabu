@@ -57,6 +57,68 @@ class Linear(object):
 
         return outputs
 
+class LinearExtended(object):
+    '''This class defines a fully connected linear layer'''
+
+    def __init__(self, output_dim, window):
+        '''
+        FFLayer constructor, defines the variables
+        Args:
+            output_dim: output dimension (integer) of the layer
+            window: the number of frames (integer) that are put together,
+            each frame is about 10ms of speech
+        '''
+
+        #save the parameters
+        self.output_dim = output_dim
+        self.window = window
+
+    def __call__(self, inputs, scope=None):
+        '''
+        Create the variables and do the forward computation
+
+        Args:
+            inputs: the input to the layer as a
+                [batch_size x max_length x input_dim] tensor
+            scope: the variable scope of the layer
+
+        Returns:
+            The output of the layer as a
+            [batch_size x max_length x output_dim] tensor
+        '''
+
+        with tf.variable_scope(scope or type(self).__name__):
+
+            stddev = 1/(int(inputs.get_shape()[2])*self.window)**0.5
+
+            weights = tf.get_variable(
+                'weights', [inputs.get_shape()[2]*self.window, self.output_dim*self.window],
+                initializer=tf.random_normal_initializer(stddev=stddev))
+
+            biases = tf.get_variable(
+                'biases', [self.output_dim*self.window],
+                initializer=tf.constant_initializer(0))
+
+            batch_size = int(inputs.get_shape()[0])
+            seq_length = int(inputs.get_shape()[1])
+            input_dim = int(inputs.get_shape()[2])
+
+            nb_padding = self.window - (seq_length % self.window)
+            if (nb_padding != self.window):
+                paddings = [[0,0],[0,nb_padding],[0,0]]
+                inputs = tf.pad(inputs, paddings)
+                seq_length = int(inputs.get_shape()[1])
+
+            flat_inputs = tf.reshape(inputs, [-1, input_dim*self.window])
+
+            #apply weights and biases
+            flat_outputs = tf.matmul(flat_inputs, weights) + biases
+
+            outputs = tf.reshape(flat_outputs,
+                [batch_size,seq_length,self.output_dim])
+
+        return outputs
+
 class BLSTMLayer(object):
     """This class allows enables blstm layer creation as well as computing
        their output. The output is found by linearly combining the forward
@@ -376,8 +438,62 @@ class Conv2dLayer(object):
                 'bias', [self.out_channels],
                 initializer=tf.random_normal_initializer(stddev=stddev))
 
-            #do the atrous convolution
+            #do the convolution
             out = tf.nn.conv2d(inputs,w,[1,1,1,1],'SAME')
+
+            #add the bias
+            out = tf.nn.bias_add(out,b)
+
+        return out
+
+class Conv2dLayerStrided(object):
+    '''a 2-D strided convolutional layer, for time reduction'''
+
+    def __init__(self, fheight, fwidth, channels_out):
+        '''constructor
+
+        Args:
+            fheight: the height of the filter
+            fwidth: the width of the filter
+            channels_out: the number of channels at the output side
+        '''
+
+        self.fheight = fheight
+        self.fwidth = fwidth
+        self.out_channels = channels_out
+
+    def __call__(self, inputs, seq_length, scope=None):
+        '''
+        Create the variables and do the forward computation
+
+        Args:
+            inputs: the input to the layer as a 4D
+                [batch_size, max_length, feature_dim,in_channels] tensor
+            seq_length: the length of the input sequences
+            scope: The variable scope sets the namespace under which
+                the variables created during this call will be stored.
+
+        Returns:
+            the outputs which is a [batch_size, max_length, feature_dim,out_channels]
+        '''
+
+        with tf.variable_scope(scope or type(self).__name__):
+
+            in_channels = int(inputs.get_shape()[3])
+            stddev = 1/(self.fwidth*self.fheight*in_channels)**0.5
+
+            #the filter parameters
+            w = tf.get_variable(
+                'filter', [self.fheight, self.fwidth, in_channels, self.out_channels],
+                initializer=tf.random_normal_initializer(stddev=stddev))
+
+            #the bias parameters
+            b = tf.get_variable(
+                'bias', [self.out_channels],
+                initializer=tf.random_normal_initializer(stddev=stddev))
+
+            #do the convolution
+            out = tf.nn.conv2d(inputs,w,[1,2,1,1],'SAME')
 
             #add the bias
             out = tf.nn.bias_add(out,b)

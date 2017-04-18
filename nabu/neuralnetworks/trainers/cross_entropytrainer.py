@@ -55,8 +55,72 @@ class CrossEntropyTrainer(trainer.Trainer):
             #pylint: disable=E1101
             nonseq_targets = tf.one_hot(nonseq_targets, output_dim)
 
+            '''#collect the attention tensor, with shape [batch_size, sequence_length, output_dim]
+            attention = tf.get_collection('attention')
+            attention = attention[0]'''
+
             #compute the cross-enthropy loss
             loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(
                 logits=nonseq_logits, labels=nonseq_targets))
+                #+ 0.001*tf.reduce_mean(attention_normalize(attention))
+                #+ 0.05*tf.reduce_mean(attention_prior(attention))
 
         return loss
+
+def attention_normalize(attention):
+    '''Calculates an extra loss term, it adds a prior for the alignment
+        to be normalized in the time direction
+
+    Args:
+        attention: the attention tensor of shape
+            [batch_size, hl_seq_length, time]
+
+    returns:
+        a tensor with a scalar value for every utterance, shape [batch_size]
+    '''
+    batch_size = int(attention.get_shape()[0])
+    hl_length = int(attention.get_shape()[1])
+
+    differences = tf.subtract(tf.reduce_sum(attention,2),tf.ones([batch_size,hl_length]))
+    squared = tf.square(differences)
+
+    return tf.reduce_sum(squared, 1)
+
+def attention_prior(attention):
+    '''Calculates an extra loss term, it adds a prior for monotonous alignment
+
+    Args:
+        attention: the attention tensor of shape
+            [batch_size, hl_seq_length, time]
+
+    returns:
+        a tensor with a scalar value for every utterance, shape [batch_size]
+    '''
+    batch_size = int(attention.get_shape()[0])
+    dim = int(attention.get_shape()[2])
+    #print (batch_size)
+    #print (dim)
+
+    '''loss_temp = tf.zeros([batch_size])
+    prior_term = loss_temp
+    t = 1
+    while t <= dim - 1:
+        prior_term = tf.add(prior_term,
+            tf.maximum(tf.zeros([batch_size]),loss_temp))
+        loss_temp = tf.zeros([batch_size])
+        i = 1
+        print (t)
+        while i <= dim - 1:
+            loss_temp = tf.add(loss_temp, tf.reduce_sum(tf.subtract(
+                tf.slice(attention,[0,0,t],[batch_size,i,1]),
+                tf.slice(attention,[0,0,t-1],[batch_size,i,1])),1))
+            i = i + 1
+        t = t + 1'''
+
+
+    prior_term = tf.norm(
+        tf.subtract(tf.matmul(
+        tf.transpose(attention,[0,2,1]), attention),
+        tf.eye(num_rows=dim, batch_shape=[batch_size])), axis=[-2,-1])
+
+    return prior_term

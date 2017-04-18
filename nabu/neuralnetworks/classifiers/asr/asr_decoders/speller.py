@@ -58,6 +58,29 @@ class Speller(asr_decoder.AsrDecoder):
             scope='attention_decoder',
             initial_state_attention=not first_step)
 
+        '''#Get all the attention tensors out of the graph
+        #Used for adding a prior on the alignment (extra term in loss function)
+        attention_name = (tf.get_default_graph()._name_stack
+            + '/attention_decoder/Attention_0/Softmax:0')
+        attention = tf.get_default_graph().get_tensor_by_name(
+            attention_name)
+        attention = tf.expand_dims(attention, 2)
+
+        i = 1
+        while i <= int(encoder_inputs.get_shape()[1]) - 1 :
+            attention_name = (
+                tf.get_default_graph()._name_stack
+                + '/attention_decoder/Attention_0_%d/Softmax:0' % i)
+            next_attention = tf.get_default_graph().get_tensor_by_name(
+                attention_name)
+            next_attention = tf.expand_dims(next_attention, 2)
+            attention = tf.concat([attention,next_attention], 2)
+            i = i + 1
+
+        #add the attention tensor to the graph collection
+        tf.add_to_collection('attention', attention)'''
+
+
         logits = tf.transpose(tf.stack(logit_list), [1, 0, 2])
 
         return logits, state
