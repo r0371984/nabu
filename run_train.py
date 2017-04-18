@@ -24,7 +24,7 @@ def main(_):
     '''main function'''
 
     #pointers to the config files
-    computing_cfg_file = 'config/computing/non_distributed.cfg'
+    computing_cfg_file = 'config/computing/condor_non_distributed.cfg'
     database_cfg_file = 'config/asr_databases/TIMIT.conf'
     if FLAGS.type == 'asr':
         feat_cfg_file = 'config/features/fbank.cfg'
@@ -137,7 +137,7 @@ def main(_):
         machines['ps'] = []
         with open(computing_cfg['clusterfile']) as fid:
             for line in fid:
-                if len(line.strip()) > 0:
+                if line.strip():
                     split = line.strip().split(',')
                     machines[split[0]].append(split[1])
 
@@ -241,7 +241,7 @@ def main(_):
             os.system('condor_rm -constraint \'JobStatus =!= 2\'')
 
             #check if enough machines are available
-            if len(machines['worker']) == 0 or len(machines['ps']) == 0:
+            if machines['worker'] or machines['ps']:
 
                 #stop the ps jobs
                 cidfile = os.path.join(FLAGS.expdir, 'cluster', 'ps-cid')
